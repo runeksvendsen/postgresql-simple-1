@@ -63,12 +63,13 @@ import           Control.Concurrent(threadWaitRead, threadWaitWrite)
 -- period of time,  as they will retain the entire query result,  not
 -- just the field metadata
 
-data Field = Field {
-     result   :: !PQ.Result
-   , column   :: {-# UNPACK #-} !PQ.Column
-   , typeOid  :: {-# UNPACK #-} !PQ.Oid
+data Field = FieldCtor {
+     typeOid  :: {-# UNPACK #-} !PQ.Oid
      -- ^ This returns the type oid associated with the column.  Analogous
      --   to libpq's @PQftype@.
+   , format   :: {-# UNPACK #-} !PQ.Format
+   , tableOid :: !(Maybe PQ.Oid)
+   , name     :: !(Maybe ByteString)
    }
 
 type TypeInfoCache = IntMap.IntMap TypeInfo

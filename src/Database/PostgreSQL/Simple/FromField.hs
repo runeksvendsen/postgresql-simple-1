@@ -98,10 +98,6 @@ module Database.PostgreSQL.Simple.FromField
     , Attribute(..)
     , typeInfo
     , typeInfoByOid
-    , name
-    , tableOid
-    , tableColumn
-    , format
     , typeOid
     , PQ.Oid(..)
     , PQ.Format(..)
@@ -219,46 +215,11 @@ typename :: Field -> Conversion ByteString
 typename field = typname <$> typeInfo field
 
 typeInfo :: Field -> Conversion TypeInfo
-typeInfo Field{..} = Conversion $ \conn -> do
-                       Ok <$> (getTypeInfo conn typeOid)
+typeInfo = typeInfoByOid . typeOid
 
 typeInfoByOid :: PQ.Oid -> Conversion TypeInfo
 typeInfoByOid oid = Conversion $ \conn -> do
                       Ok <$> (getTypeInfo conn oid)
-
--- | Returns the name of the column.  This is often determined by a table
---   definition,  but it can be set using an @as@ clause.
-
-name :: Field -> Maybe ByteString
-name Field{..} = unsafeDupablePerformIO (PQ.fname result column)
-
--- | Returns the name of the object id of the @table@ associated with the
---   column,  if any.  Returns 'Nothing' when there is no such table;
---   for example a computed column does not have a table associated with it.
---   Analogous to libpq's @PQftable@.
-
-tableOid :: Field -> Maybe PQ.Oid
-tableOid Field{..} = toMaybeOid (unsafeDupablePerformIO (PQ.ftable result column))
-  where
-     toMaybeOid x
-       = if   x == PQ.invalidOid
-         then Nothing
-         else Just x
-
--- | If the column has a table associated with it,  this returns the number
---   off the associated table column.   Numbering starts from 0.  Analogous
---   to libpq's @PQftablecol@.
-
-tableColumn :: Field -> Int
-tableColumn Field{..} = fromCol (unsafeDupablePerformIO (PQ.ftablecol result column))
-  where
-    fromCol (PQ.Col x) = fromIntegral x
-
--- | This returns whether the data was returned in a binary or textual format.
---   Analogous to libpq's @PQfformat@.
-
-format :: Field -> PQ.Format
-format Field{..} = unsafeDupablePerformIO (PQ.fformat result column)
 
 -- | void
 instance FromField () where
