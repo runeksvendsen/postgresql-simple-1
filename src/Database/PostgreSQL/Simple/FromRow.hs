@@ -113,19 +113,8 @@ fieldWith fieldP = RP $ do
         conversionError err
     else do
       let !result = rowresult
-          !typeOid = unsafeDupablePerformIO (PQ.ftype result column)
-          --TODO: format, name, and tableOid are not always necessary; should we avoid the work of retrieving them?
-          !format = unsafeDupablePerformIO (PQ.fformat result column)
-          !name = unsafeDupablePerformIO (PQ.fname result column)
-          !tableOid = toMaybeOid (unsafeDupablePerformIO (PQ.ftable result column))
-          !field = FieldCtor{..}
+          !field = resultToField result column
       lift (lift (fieldP field (getvalue result row column)))
-
-toMaybeOid :: PQ.Oid -> Maybe PQ.Oid
-toMaybeOid x
-  = if   x == PQ.invalidOid
-    then Nothing
-    else Just x
 
 field :: FromField a => RowParser a
 field = fieldWith fromField
