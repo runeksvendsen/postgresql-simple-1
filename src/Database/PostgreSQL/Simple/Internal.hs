@@ -42,7 +42,7 @@ import           Data.Word
 import           Database.PostgreSQL.LibPQ(Oid(..))
 import qualified Database.PostgreSQL.LibPQ as PQ
 import           Database.PostgreSQL.LibPQ(ExecStatus(..))
-import           Database.PostgreSQL.Simple.Compat ( toByteString )
+import           Database.PostgreSQL.Simple.Compat ( toByteString, unsafeDupablePerformIO )
 import           Database.PostgreSQL.Simple.Ok
 import           Database.PostgreSQL.Simple.ToField (Action(..), inQuotes)
 import           Database.PostgreSQL.Simple.Types (Query(..))
@@ -61,14 +61,30 @@ import           Control.Concurrent(threadWaitRead, threadWaitWrite)
 -- period of time,  as they will retain the entire query result,  not
 -- just the field metadata
 
-data Field = FieldCtor {
+data Field = Field {
      typeOid  :: {-# UNPACK #-} !PQ.Oid
      -- ^ This returns the type oid associated with the column.  Analogous
      --   to libpq's @PQftype@.
-   , format   :: {-# UNPACK #-} !PQ.Format
+   , format   :: !PQ.Format
    , tableOid :: !(Maybe PQ.Oid)
    , name     :: !(Maybe ByteString)
    }
+
+resultToField :: PQ.Result -> PQ.Column -> Field
+resultToField result col =
+  let !column = col
+      !typeOid = unsafeDupablePerformIO (PQ.ftype result column)
+      --TODO: format, name, and tableOid are not always necessary; should we avoid the work of retrieving them?
+      !format = unsafeDupablePerformIO (PQ.fformat result column)
+      !name = unsafeDupablePerformIO (PQ.fname result column)
+      !tableOid = toMaybeOid (unsafeDupablePerformIO (PQ.ftable result column))
+  in Field{..}
+
+toMaybeOid :: PQ.Oid -> Maybe PQ.Oid
+toMaybeOid x
+  = if   x == PQ.invalidOid
+    then Nothing
+    else Just x
 
 type TypeInfoCache = IntMap.IntMap TypeInfo
 
