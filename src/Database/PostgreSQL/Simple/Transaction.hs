@@ -17,6 +17,7 @@ module Database.PostgreSQL.Simple.Transaction
     , withTransactionLevel
     , withTransactionMode
     , withTransactionModeRetry
+    , withTransactionModeRetryLog
     , withTransactionSerializable
     , TransactionMode(..)
     , IsolationLevel(..)
@@ -154,7 +155,12 @@ withTransactionMode mode conn act =
 --
 -- This is used to implement 'withTransactionSerializable'.
 withTransactionModeRetry :: TransactionMode -> (SqlError -> Bool) -> Connection -> IO a -> IO a
-withTransactionModeRetry mode shouldRetry conn act =
+withTransactionModeRetry =
+    withTransactionModeRetryLog $ const (pure ())
+
+-- | Same as 'withTransactionModeRetry' but takes a function as arguments for logging retries
+withTransactionModeRetryLog :: (SqlError -> IO ()) -> TransactionMode -> (SqlError -> Bool) -> Connection -> IO a -> IO a
+withTransactionModeRetryLog logRetry mode shouldRetry conn act =
     mask $ \restore ->
         retryLoop $ E.try $ do
             a <- restore act `E.onException` rollback_ conn
@@ -168,7 +174,7 @@ withTransactionModeRetry mode shouldRetry conn act =
         case r of
             Left e ->
                 case shouldRetry e of
-                  True -> retryLoop act'
+                  True -> logRetry e >> retryLoop act'
                   False -> E.throwIO e
             Right a ->
                 return a
